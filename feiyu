@@ -1,0 +1,80 @@
+#!/bin/bash
+
+# 存储IP地址的文件
+IP_FILE="/home/feiyu/scripts/last_ip.txt"
+
+# 函数：提示用户输入IP地址，提供默认值
+get_ip() {
+    # 检查是否存在上次使用的IP地址文件
+    if [ -f "$IP_FILE" ]; then
+        last_ip=$(cat "$IP_FILE")
+    else
+        last_ip="192.168.233.56"  # 默认的初始IP地址
+    fi
+
+    # 提示用户输入IP地址，提供默认值
+    echo "请输入IP地址 (默认: $last_ip):"
+    read input_ip
+
+    # 如果用户未输入，则使用上次的IP地址
+    if [ -z "$input_ip" ]; then
+        input_ip="$last_ip"
+    fi
+
+    # 将新的IP地址保存到文件
+    echo "$input_ip" > "$IP_FILE"
+}
+
+# 提示用户选择快捷指令
+echo "请选择快捷指令: ssh登录(s) code挂载代码(c) rviz2显示(r) 保存地图(p):"
+read choose
+
+case $choose in
+    s) 
+        get_ip
+        ssh feiyu_orinnx@$input_ip
+        ;;
+    c)
+        get_ip
+        sshfs feiyu_orinnx@$input_ip:/home/feiyu_orinnx /home/feiyu/nx_mount/
+        code /home/feiyu/nx_mount/AGV_Robot_ROS2/src/
+        ;;
+    r) 
+        echo "请选择要打开的rviz2配置文件: "
+        echo "1) 默认视图: /home/feiyu/nx_mount/AGV_Robot_ROS2/src/agv_launch/rviz2/agv_rviz2.rviz"
+        echo "2) Nav2默认视图: /home/feiyu/nx_mount/AGV_Robot_ROS2/src/agv_launch/rviz2/nav2_default_view.rviz"
+        read rviz_choice
+        case $rviz_choice in
+            1) 
+                rviz2 -d /home/feiyu/nx_mount/AGV_Robot_ROS2/src/agv_launch/rviz2/agv_rviz2.rviz
+                ;;
+            2) 
+                rviz2 -d /home/feiyu/nx_mount/AGV_Robot_ROS2/src/agv_launch/rviz2/nav2_default_view.rviz
+                ;;
+            *) 
+                echo "输入有误，请输入正确选项"
+                ;;
+        esac
+        ;;
+    p)
+        echo "请输入保存的地图名:"
+        read map_name
+        if [ -z "$map_name" ]; then
+            echo "地图名不能为空，请重新输入"
+        else
+            echo "请输入保存地图的路径 (默认为当前文件夹):"
+            read map_path
+            if [ -z "$map_path" ]; then
+                map_path="."
+            fi
+            ros2 run nav2_map_server map_saver_cli -f $map_path/$map_name
+            echo "地图已保存为 $map_path/$map_name"
+        fi
+        ;;
+    *) 
+        echo "输入有误，请输入正确选项"
+        ;;
+esac
+
+
+
