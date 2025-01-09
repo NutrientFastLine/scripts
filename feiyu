@@ -49,6 +49,10 @@ mount_directory() {
 echo "请选择快捷指令: ssh登录(s) code挂载代码(c) rviz2显示(r) 保存地图(p):"
 read choose
 
+if [ -z "$choose" ]; then
+    choose="s"
+fi
+
 case $choose in
     s) 
         get_ip
@@ -69,10 +73,10 @@ case $choose in
         read rviz_choice
         case $rviz_choice in
             1) 
-                rviz2 -d "$MOUNT_POINT/AGV_Robot_ROS2/src/agv_launch/rviz2/agv_rviz2.rviz"
+                rviz2 -d "$MOUNT_POINT/AGV_Robot_ROS2/src/agv_bringup/rviz2/agv_rviz2.rviz"
                 ;;
             2) 
-                rviz2 -d "$MOUNT_POINT/AGV_Robot_ROS2/src/agv_launch/rviz2/nav2_default_view.rviz"
+                rviz2 -d "$MOUNT_POINT/AGV_Robot_ROS2/src/agv_bringup/rviz2/nav2_default_view.rviz"
                 ;;
             *) 
                 echo "输入有误，请输入正确选项"
@@ -96,4 +100,3 @@ case $choose in
         echo "输入有误，请输入正确选项"
         ;;
 esac
-
