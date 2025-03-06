@@ -68,9 +68,10 @@ case $choose in
         # 调用挂载检查函数
         mount_directory
         echo "请选择要打开的rviz2配置文件: "
-        echo "1) 默认视图: $MOUNT_POINT/AGV_Robot_ROS2/src/agv_launch/rviz2/agv_rviz2.rviz"
-        echo "2) Nav2默认视图: $MOUNT_POINT/AGV_Robot_ROS2/src/agv_launch/rviz2/nav2_default_view.rviz"
-        read rviz_choice
+        echo "1) 默认视图: $MOUNT_POINT/AGV_Robot_ROS2/src/agv_bringup/rviz2/agv_rviz2.rviz"
+        echo "2) Nav2视图: $MOUNT_POINT/AGV_Robot_ROS2/src/agv_bringup/rviz2/nav2_default_view.rviz"
+	echo "3) toolbox视图: $MOUNT_POINT/AGV_Robot_ROS2/src/agv_bringup/rviz2/slam_toolbox_default.rviz"
+	read rviz_choice
         case $rviz_choice in
             1) 
                 rviz2 -d "$MOUNT_POINT/AGV_Robot_ROS2/src/agv_bringup/rviz2/agv_rviz2.rviz"
@@ -78,6 +79,10 @@ case $choose in
             2) 
                 rviz2 -d "$MOUNT_POINT/AGV_Robot_ROS2/src/agv_bringup/rviz2/nav2_default_view.rviz"
                 ;;
+            3) 
+                rviz2 -d "$MOUNT_POINT/AGV_Robot_ROS2/src/agv_bringup/rviz2/slam_toolbox_default.rviz"
+                ;;
+
             *) 
                 echo "输入有误，请输入正确选项"
                 ;;
