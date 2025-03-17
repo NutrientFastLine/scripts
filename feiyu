@@ -1,41 +1,61 @@
 #!/bin/bash
 
-# 存储IP地址的文件
-IP_FILE="/home/feiyu/scripts/last_ip.txt"
-MOUNT_POINT="/home/feiyu/nx_mount"  # 挂载目录
+# 存储IP地址、挂载目录和用户的文件
+CONFIG_FILE="/home/feiyu/scripts/config.txt"
 
-# 函数：提示用户输入IP地址，提供默认值
-get_ip() {
-    # 检查是否存在上次使用的IP地址文件
-    if [ -f "$IP_FILE" ]; then
-        last_ip=$(cat "$IP_FILE")
+# 默认值
+DEFAULT_IP="192.168.1.115"
+DEFAULT_REMOTE_DIRECTORY="/home/wheeltec"
+DEFAULT_LOCAL_POINT="/home/feiyu/nx_mount"
+DEFAULT_REMOTE_USER="wheeltec"
+
+# 读取配置文件
+load_config() {
+    if [ -f "$CONFIG_FILE" ]; then
+        if [ -s "$CONFIG_FILE" ]; then
+            source "$CONFIG_FILE"
+        else
+            echo "配置文件为空，使用默认值。"
+            IP_ADDRESS="$DEFAULT_IP"
+            REMOTE_DIRECTORY="$DEFAULT_REMOTE_DIRECTORY"
+            LOCAL_POINT="$DEFAULT_LOCAL_POINT"
+            REMOTE_USER="$DEFAULT_REMOTE_USER"
+        fi
     else
-        last_ip="192.168.233.56"  # 默认的初始IP地址
+        echo "配置文件不存在，使用默认值。"
+        IP_ADDRESS="$DEFAULT_IP"
+        REMOTE_DIRECTORY="$DEFAULT_REMOTE_DIRECTORY"
+        LOCAL_POINT="$DEFAULT_LOCAL_POINT"
+        REMOTE_USER="$DEFAULT_REMOTE_USER"
     fi
-
-    # 提示用户输入IP地址，提供默认值
-    echo "请输入IP地址 (默认: $last_ip):"
-    read input_ip
-
-    # 如果用户未输入，则使用上次的IP地址
-    if [ -z "$input_ip" ]; then
-        input_ip="$last_ip"
-    fi
-
-    # 将新的IP地址保存到文件
-    echo "$input_ip" > "$IP_FILE"
 }
 
-# 函数：检查并挂载目录
+# 保存配置到文件
+save_config() {
+    echo "IP_ADDRESS=$IP_ADDRESS" > "$CONFIG_FILE"
+    echo "REMOTE_DIRECTORY=$REMOTE_DIRECTORY" >> "$CONFIG_FILE"
+    echo "LOCAL_POINT=$LOCAL_POINT" >> "$CONFIG_FILE"
+    echo "REMOTE_USER=$REMOTE_USER" >> "$CONFIG_FILE"
+}
+
+# 获取IP地址
+get_ip() {
+    echo "请输入IP地址 (默认: $IP_ADDRESS):"
+    read input_ip
+    if [ -n "$input_ip" ]; then
+        IP_ADDRESS="$input_ip"
+        save_config
+    fi
+}
+
+# 检查并挂载目录
 mount_directory() {
-    get_ip
-    # 检查是否已经挂载
-    if mountpoint -q "$MOUNT_POINT"; then
-        echo "目录 $MOUNT_POINT 已经挂载，跳过挂载步骤。"
+    if mountpoint -q "$LOCAL_POINT"; then
+        echo "目录 $LOCAL_POINT 已经挂载，跳过挂载步骤。"
     else
-        # 如果未挂载，则执行挂载操作
-        echo "正在挂载 $MOUNT_POINT..."
-        sshfs feiyu_orinnx@$input_ip:/home/feiyu_orinnx "$MOUNT_POINT"
+        echo "正在挂载 $REMOTE_DIRECTORY..."
+        get_ip
+        sshfs "$REMOTE_USER@$IP_ADDRESS:$REMOTE_DIRECTORY" "$LOCAL_POINT"
         if [[ $? -eq 0 ]]; then
             echo "挂载完成。"
         else
@@ -45,8 +65,42 @@ mount_directory() {
     fi
 }
 
+# 初始化设置
+initialize() {
+    echo "请输入本地目录挂载点 (默认: $LOCAL_POINT):"
+    read new_local_point
+    if [ -n "$new_local_point" ]; then
+        LOCAL_POINT="$new_local_point"
+    fi
+    
+    echo "请输入远程挂载目录 (默认: $REMOTE_DIRECTORY):"
+    read new_remote_directory
+    if [ -n "$new_remote_directory" ]; then
+        REMOTE_DIRECTORY="$new_remote_directory"
+    fi
+
+    echo "请输入远程 SSH 用户名 (默认: $REMOTE_USER):"
+    read new_user
+    if [ -n "$new_user" ]; then
+        REMOTE_USER="$new_user"
+    fi
+
+    save_config
+    echo "初始化完成，配置已保存。"
+}
+
+# 加载上次保存的配置
+load_config
+
+# 显示当前默认值，每个值单独一行
+echo "当前默认配置："
+echo "SSH 用户名：$REMOTE_USER"
+echo "SSH IP 地址：$IP_ADDRESS"
+echo "本地目录挂载点：$LOCAL_POINT"
+echo "远程目录挂载点：$REMOTE_DIRECTORY"
+
 # 提示用户选择快捷指令
-echo "请选择快捷指令: ssh登录(s) code挂载代码(c) rviz2显示(r) 保存地图(p):"
+echo "请选择快捷指令: ssh登录(s) code挂载代码(c) rviz2显示(r) 保存地图(p) 初始化(i):"
 read choose
 
 if [ -z "$choose" ]; then
@@ -54,38 +108,27 @@ if [ -z "$choose" ]; then
 fi
 
 case $choose in
-    s) 
+    s)
         get_ip
-        ssh feiyu_orinnx@$input_ip
+        mount_directory
+        ssh "$REMOTE_USER@$IP_ADDRESS"
         ;;
     c)
-        # 调用挂载检查函数
         mount_directory
-        # 打开 VS Code
-        code "$MOUNT_POINT/AGV_Robot_ROS2/src/"
+        code "$LOCAL_POINT/AGV_Robot_ROS2/src/"
         ;;
     r)
-        # 调用挂载检查函数
         mount_directory
         echo "请选择要打开的rviz2配置文件: "
-        echo "1) 默认视图: $MOUNT_POINT/AGV_Robot_ROS2/src/agv_bringup/rviz2/agv_rviz2.rviz"
-        echo "2) Nav2视图: $MOUNT_POINT/AGV_Robot_ROS2/src/agv_bringup/rviz2/nav2_default_view.rviz"
-	echo "3) toolbox视图: $MOUNT_POINT/AGV_Robot_ROS2/src/agv_bringup/rviz2/slam_toolbox_default.rviz"
-	read rviz_choice
+        echo "1) 默认视图: $LOCAL_POINT/AGV_Robot_ROS2/src/agv_bringup/rviz2/agv_rviz2.rviz"
+        echo "2) Nav2视图: $LOCAL_POINT/AGV_Robot_ROS2/src/agv_bringup/rviz2/nav2_default_view.rviz"
+        echo "3) toolbox视图: $LOCAL_POINT/AGV_Robot_ROS2/src/agv_bringup/rviz2/slam_toolbox_default.rviz"
+        read rviz_choice
         case $rviz_choice in
-            1) 
-                rviz2 -d "$MOUNT_POINT/AGV_Robot_ROS2/src/agv_bringup/rviz2/agv_rviz2.rviz"
-                ;;
-            2) 
-                rviz2 -d "$MOUNT_POINT/AGV_Robot_ROS2/src/agv_bringup/rviz2/nav2_default_view.rviz"
-                ;;
-            3) 
-                rviz2 -d "$MOUNT_POINT/AGV_Robot_ROS2/src/agv_bringup/rviz2/slam_toolbox_default.rviz"
-                ;;
-
-            *) 
-                echo "输入有误，请输入正确选项"
-                ;;
+            1) rviz2 -d "$LOCAL_POINT/AGV_Robot_ROS2/src/agv_bringup/rviz2/agv_rviz2.rviz" ;;
+            2) rviz2 -d "$LOCAL_POINT/AGV_Robot_ROS2/src/agv_bringup/rviz2/nav2_default_view.rviz" ;;
+            3) rviz2 -d "$LOCAL_POINT/AGV_Robot_ROS2/src/agv_bringup/rviz2/slam_toolbox_default.rviz" ;;
+            *) echo "输入有误，请输入正确选项" ;;
         esac
         ;;
     p)
@@ -96,12 +139,16 @@ case $choose in
         else
             echo "请输入保存地图的路径 (默认为当前文件夹):"
             read map_path
-            map_path=${map_path:-"."}  # 默认路径为当前文件夹
+            map_path=${map_path:-"."}
             ros2 run nav2_map_server map_saver_cli -f "$map_path/$map_name"
             echo "地图已保存为 $map_path/$map_name"
         fi
         ;;
-    *) 
+    i)
+        initialize
+        ;;
+    *)
         echo "输入有误，请输入正确选项"
         ;;
 esac
+

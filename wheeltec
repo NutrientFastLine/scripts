@@ -1,0 +1,106 @@
+#!/bin/bash
+
+# 存储IP地址的文件
+IP_FILE="/home/feiyu/scripts/last_ip.txt"
+MOUNT_POINT="/home/feiyu/nx_mount"  # 挂载目录
+
+# 函数：提示用户输入IP地址，提供默认值
+get_ip() {
+    # 检查是否存在上次使用的IP地址文件
+    if [ -f "$IP_FILE" ]; then
+        last_ip=$(cat "$IP_FILE")
+    else
+        last_ip="192.168.1.115"  # 默认的初始IP地址
+    fi
+
+    # 提示用户输入IP地址，提供默认值
+    echo "请输入IP地址 (默认: $last_ip):"
+    read input_ip
+
+    # 如果用户未输入，则使用上次的IP地址
+    if [ -z "$input_ip" ]; then
+        input_ip="$last_ip"
+    fi
+
+    # 将新的IP地址保存到文件
+    echo "$input_ip" > "$IP_FILE"
+}
+
+# 函数：检查并挂载目录
+mount_directory() {
+    get_ip
+    # 检查是否已经挂载
+    if mountpoint -q "$MOUNT_POINT"; then
+        echo "目录 $MOUNT_POINT 已经挂载，跳过挂载步骤。"
+    else
+        # 如果未挂载，则执行挂载操作
+        echo "正在挂载 $MOUNT_POINT..."
+        sshfs wheeltec@$input_ip:/home/wheeltec "$MOUNT_POINT"
+        if [[ $? -eq 0 ]]; then
+            echo "挂载完成。"
+        else
+            echo "挂载失败，请检查网络连接或权限。"
+            exit 1
+        fi
+    fi
+}
+
+# 提示用户选择快捷指令
+echo "请选择快捷指令: ssh登录(s) code挂载代码(c) rviz2显示(r) 保存地图(p):"
+read choose
+
+if [ -z "$choose" ]; then
+    choose="s"
+fi
+
+case $choose in
+    s)
+        get_ip
+        ssh wheeltec@$input_ip
+        ;;
+    c)
+        # 调用挂载检查函数
+        mount_directory
+        # 打开 VS Code
+        code "$MOUNT_POINT/AGV_Robot_ROS2/src/"
+        ;;
+    r)
+        # 调用挂载检查函数
+        mount_directory
+        echo "请选择要打开的rviz2配置文件: "
+        echo "1) 默认视图: $MOUNT_POINT/AGV_Robot_ROS2/src/agv_bringup/rviz2/agv_rviz2.rviz"
+        echo "2) Nav2视图: $MOUNT_POINT/AGV_Robot_ROS2/src/agv_bringup/rviz2/nav2_default_view.rviz"
+        echo "3) toolbox视图: $MOUNT_POINT/AGV_Robot_ROS2/src/agv_bringup/rviz2/slam_toolbox_default.rviz"
+        read rviz_choice
+        case $rviz_choice in
+            1)
+                rviz2 -d "$MOUNT_POINT/AGV_Robot_ROS2/src/agv_bringup/rviz2/agv_rviz2.rviz"
+                ;;
+            2)
+                rviz2 -d "$MOUNT_POINT/AGV_Robot_ROS2/src/agv_bringup/rviz2/nav2_default_view.rviz"
+                ;;
+            3)
+                rviz2 -d "$MOUNT_POINT/AGV_Robot_ROS2/src/agv_bringup/rviz2/slam_toolbox_default.rviz"
+                ;;
+            *)
+                echo "输入有误，请输入正确选项"
+                ;;
+        esac
+        ;;
+    p)
+        echo "请输入保存的地图名:"
+        read map_name
+        if [ -z "$map_name" ]; then
+            echo "地图名不能为空，请重新输入"
+        else
+            echo "请输入保存地图的路径 (默认为当前文件夹):"
+            read map_path
+            map_path=${map_path:-"."}  # 默认路径为当前文件夹
+            ros2 run nav2_map_server map_saver_cli -f "$map_path/$map_name"
+            echo "地图已保存为 $map_path/$map_name"
+        fi
+        ;;
+    *)
+        echo "输入有误，请输入正确选项"
+        ;;
+esac

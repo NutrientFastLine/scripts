@@ -1,0 +1,4 @@
+IP_ADDRESS=192.168.1.115
+REMOTE_DIRECTORY=/home/wheeltec
+LOCAL_POINT=/home/feiyu/nx_mount
+REMOTE_USER=wheeltec
